@@ -1,0 +1,66 @@
+package fi.dy.masa.servux.settings;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
+import fi.dy.masa.servux.dataproviders.IDataProvider;
+import java.util.List;
+import net.minecraft.network.chat.Component;
+
+public class ServuxStringSetting extends AbstractServuxSetting<String>
+{
+    private final boolean strict;
+    public ServuxStringSetting(IDataProvider dataProvider, String name, String defaultValue, List<String> examples, boolean strict, IServuxSettingCallback<String> callback)
+    {
+        this(dataProvider, name, null, null, defaultValue, examples, strict, callback);
+    }
+
+    public ServuxStringSetting(IDataProvider dataProvider, String name, String defaultValue, List<String> examples, boolean strict)
+    {
+        this(dataProvider, name, null, null, defaultValue, examples, strict);
+    }
+
+    public ServuxStringSetting(IDataProvider dataProvider, String name, Component prettyName, Component comment, String defaultValue, List<String> examples, boolean strict, IServuxSettingCallback<String> callback)
+    {
+        super(dataProvider, name, prettyName, comment, defaultValue, examples, callback);
+        this.strict = strict;
+    }
+
+    public ServuxStringSetting(IDataProvider dataProvider, String name, Component prettyName, Component comment, String defaultValue, List<String> examples, boolean strict)
+    {
+        super(dataProvider, name, prettyName, comment, defaultValue, examples, null);
+        this.strict = strict;
+    }
+
+    @Override
+    public boolean validateString(String value)
+    {
+        return strict ? this.examples().contains(value) : true;
+    }
+
+    @Override
+    public String valueToString(Object value)
+    {
+        return (String) value;
+    }
+
+    @Override
+    public String valueFromString(String value)
+    {
+        return value;
+    }
+
+    @Override
+    public void readFromJson(JsonElement element)
+    {
+        if (element instanceof JsonPrimitive primitive)
+        {
+            this.setValueNoCallback(primitive.getAsString());
+        }
+    }
+
+    @Override
+    public JsonElement writeToJson()
+    {
+        return new JsonPrimitive(this.getValue());
+    }
+}

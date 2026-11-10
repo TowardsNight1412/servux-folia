@@ -1,0 +1,8 @@
+name: Servux
+version: 0.12.2-folia
+main: fi.dy.masa.servux.plugin.ServuxPlugin
+api-version: '26.3'
+folia-supported: true
+description: Server-side support and integration for masa's client mods (Litematica / MiniHUD / Tweakeroo). Folia/Paper port of the Fabric mod.
+authors: [masa, Sakura-Ryoko]
+website: https://github.com/maruohon/servux

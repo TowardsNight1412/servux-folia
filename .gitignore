@@ -1,0 +1,22 @@
+# build output
+build/
+dist/
+*.class
+
+# compile dependencies (see libs/README.md)
+libs/*.jar
+!libs/README.md
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# local runtime
+run/
+logs/

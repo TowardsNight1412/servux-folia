@@ -1,0 +1,45 @@
+java.exe : WARNING: A restricted method in java.lang.foreign.MemorySegment has been called
+所在位置 行:10 字符: 8
++ $out = & 'C:\Program Files\Java\latest\jdk-26\bin\java.exe' -cp "$bot ...
++        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: A rest...has been called:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: java.lang.foreign.MemorySegment::reinterpret has been called by org.jline.terminal.impl.ffm.FfmTerminalProvide
+r in an unnamed module (file:/C:/Users/frontier/Documents/deepseek-harness/default-workspace/build/libs/jline-terminal-
+ffm-4.4.6.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+2026-11-09T11:24:23.441233700Z main WARN Advanced terminal features are not available in this environment
+===== SERVUX PROBE LOG =====
+connecting to 127.0.0.1:25566 as ServuxProbe
+CONNECTED (transport)
+RECV minecraft:brand type=5 len=6
+RECV minecraft:register type=115 len=89
+LOGIN: joined, registering 6 servux channels
+SEND servux:hud_metadata type=2 len=17
+SEND servux:hud_metadata type=4 len=17
+SEND servux:entity_data type=2 len=17
+RECV servux:hud_metadata type=1 len=187 nbt=[name:8, spawnPosY:3, id:8, spawnDimension:8, servux:8, spawnPosZ:3, spawnPosX:3, version:3]
+RECV servux:entity_data type=1 len=103 nbt=[name:8, id:8, servux:8, version:3]
+SEND servux:structures type=3 len=17
+RECV servux:structures type=1 len=129 nbt=[name:8, id:8, servux:8, version:3, timeout:3]
+RECV servux:structures type=2 len=4045 splitterComplete=4042/4042
+SEND servux:tweaks type=2 len=17
+RECV servux:tweaks type=1 len=98
+SEND servux:litematics type=2 len=17
+RECV servux:litematics type=1 len=105
+SEND servux:entity_data type=3 len=9
+RECV servux:entity_data type=5 len=103 nbt=rootType=0
+SEND servux:entity_data type=3 len=9
+RECV servux:entity_data type=5 len=103 nbt=rootType=0
+===== PAYLOAD COUNTS =====
+minecraft:brand = 1
+minecraft:register = 1
+servux:hud_metadata = 1
+servux:entity_data = 3
+servux:structures = 2
+servux:tweaks = 1
+servux:litematics = 1
+RESULT loggedIn=true channels=7

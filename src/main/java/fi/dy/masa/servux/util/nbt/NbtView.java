@@ -1,0 +1,277 @@
+package fi.dy.masa.servux.util.nbt;
+
+import java.util.Objects;
+import java.util.Optional;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.MapCodec;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.level.storage.*;
+
+import fi.dy.masa.servux.Reference;
+import fi.dy.masa.servux.util.Reflect;
+import fi.dy.masa.servux.util.data.tag.CompoundData;
+import fi.dy.masa.servux.util.data.tag.converter.DataConverterNbt;
+
+/**
+ * This is a wrapper to the new "ReadView / WriteView" that Mojang made; and provides a seamless way to extract an NbtCompound to / from it.
+ * This Wrapper also 'manages' the ErrorReporter for you.
+ */
+public class NbtView
+{
+    private static final Logger LOGGER = LoggerFactory.getLogger(Reference.MOD_ID+"-NbtView");
+    private static final ProblemReporter log = new ProblemReporter.ScopedCollector(LOGGER);
+    private ValueInput reader;
+    private ValueOutput writer;
+
+    private NbtView() {}
+
+    /**
+     * Build a Reader instance.
+     * @param nbt ()
+     * @param registry ()
+     * @return ()
+     */
+    public static NbtView getReader(CompoundTag nbt, @Nonnull RegistryAccess registry)
+    {
+        NbtView wrapper = new NbtView();
+        wrapper.reader = TagValueInput.create(log, registry, nbt);
+        wrapper.writer = null;
+        return wrapper;
+    }
+
+    public static NbtView getReader(CompoundData data, @Nonnull RegistryAccess registry)
+    {
+        NbtView wrapper = new NbtView();
+        wrapper.reader = TagValueInput.create(log, registry, DataConverterNbt.toVanillaCompound(data));
+        wrapper.writer = null;
+        return wrapper;
+    }
+
+    /**
+     * Build a Writer instance, with a new empty Writer.
+     * @param registry ()
+     * @return ()
+     */
+    public static NbtView getWriter(@Nonnull RegistryAccess registry)
+    {
+        NbtView wrapper = new NbtView();
+        wrapper.reader = null;
+        wrapper.writer = TagValueOutput.createWithContext(log, registry);
+        return wrapper;
+    }
+
+    public ProblemReporter getErrorReporter()
+    {
+        return log;
+    }
+
+    public boolean isReader() { return this.reader != null; }
+
+    public boolean isWriter() { return this.writer != null; }
+
+    public @Nullable ValueInput getReader() { return this.reader; }
+
+    public @Nullable ValueOutput getWriter() { return this.writer; }
+
+    public @Nullable TagValueInput asNbtReader() { return (TagValueInput) this.reader; }
+
+    public @Nullable TagValueOutput asNbtWriter() { return (TagValueOutput) this.writer; }
+
+    public @Nullable ValueInputContextHelper getReaderContext()
+    {
+        if (this.isReader())
+        {
+            return (ValueInputContextHelper) Reflect.get(this.reader, "context");
+        }
+
+        LOGGER.error("getReaderContext(): Called from a Writer Context");
+        return null;
+    }
+
+    public @Nullable DynamicOps<?> getWriterOps()
+    {
+        if (this.isWriter())
+        {
+            return (DynamicOps<?>) Reflect.get(this.writer, "ops");
+        }
+
+        LOGGER.error("getWriterOps(): Called from a Reader Context");
+        return null;
+    }
+
+    /**
+     * Return whatever NbtCompound that this Reader/Writer contains.
+     * @return ()
+     */
+    public @Nullable CompoundTag readNbt()
+    {
+        if (this.isReader())
+        {
+            return (CompoundTag) Reflect.get(this.reader, "input");
+        }
+        else if (this.isWriter())
+        {
+            return (CompoundTag) Reflect.get(this.writer, "output");
+        }
+
+        LOGGER.error("readNbt(): General failure");
+        return null;
+    }
+
+    /**
+     * Return whatever NbtCompound that this Reader/Writer contains; but as a CompoundData
+     * @return ()
+     */
+    public @Nullable CompoundData readData()
+    {
+        CompoundTag nbt = this.readNbt();
+
+        if (nbt != null)
+        {
+            return DataConverterNbt.fromVanillaCompound(nbt);
+        }
+
+        return null;
+    }
+
+    /**
+     * Copy an NbtCompound into a Writer instance.  NOTE; that a Reader instance is Read-Only.
+     * @param nbtIn ()
+     * @return ()
+     */
+    public @Nullable NbtView writeNbt(@Nonnull CompoundTag nbtIn)
+    {
+        if (this.isReader())
+        {
+            LOGGER.error("writeNbt(): Called from a Reader Context");
+            return null;
+        }
+
+        for (String key : nbtIn.keySet())
+        {
+            Tag entry = nbtIn.get(key);
+
+            if (entry != null)
+            {
+                Objects.requireNonNull(this.readNbt()).put(key, entry);
+            }
+        }
+
+        return this;
+    }
+
+    /**
+     * Copy an CompoundData into a Writer instance.  NOTE; that a Reader instance is Read-Only.
+     * @param dataIn ()
+     * @return ()
+     */
+    public @Nullable NbtView writeData(@Nonnull CompoundData dataIn)
+    {
+        if (this.isReader())
+        {
+            LOGGER.error("writeData(): Called from a Reader Context");
+            return null;
+        }
+
+        return this.writeNbt(DataConverterNbt.toVanillaCompound(dataIn));
+    }
+
+    /**
+     * Reads a Flat Map value from the Nbt.
+     * @param <T> ()
+     * @param mapCodec ()
+     * @return ()
+     */
+    public <T> Optional<T> readFlatMap(MapCodec<T> mapCodec)
+    {
+        if (this.isWriter())
+        {
+            LOGGER.error("readFlatMap(): Called from a Writer Context");
+            return Optional.empty();
+        }
+
+        return NbtUtils.readFlatMap(Objects.requireNonNullElse(this.readNbt(), new CompoundTag()), mapCodec);
+    }
+
+    /**
+     * Reads a CODEC utilizing 'key' from the Nbt
+     * @param <T> ()
+     * @param key ()
+     * @param codec ()
+     * @return ()
+     */
+    public <T> Optional<T> readCodec(String key, Codec<T> codec)
+    {
+        if (this.isWriter())
+        {
+            LOGGER.error("readCodec(): Called from a Writer Context");
+            return Optional.empty();
+        }
+
+        try
+        {
+            return this.reader.read(key, codec);
+        }
+        catch (Exception err)
+        {
+            LOGGER.warn("readCodec(): Exception reading from key '{}'; {}", key, err.getLocalizedMessage());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Writes a Flat Map value to the NBT
+     * @param <T> ()
+     * @param mapCodec ()
+     * @param value ()
+     * @return ()
+     */
+    public <T> CompoundTag writeFlatMap(MapCodec<T> mapCodec, T value)
+    {
+        if (this.isReader())
+        {
+            LOGGER.error("writeFlatMap(): Called from a Reader Context");
+            return new CompoundTag();
+        }
+
+        this.writeNbt(NbtUtils.writeFlatMap(mapCodec, value));
+        return this.readNbt();
+    }
+
+    /**
+     * Writes a CODEC utilizing 'key' to the Nbt
+     * @param <T> ()
+     * @param key ()
+     * @param codec ()
+     * @param value ()
+     * @return ()
+     */
+    public <T> CompoundTag writeCodec(String key, Codec<T> codec, T value)
+    {
+        if (this.isReader())
+        {
+            LOGGER.error("writeCodec(): Called from a Reader Context");
+            return new CompoundTag();
+        }
+
+        try
+        {
+            this.writer.store(key, codec, value);
+            return this.readNbt();
+        }
+        catch (Exception err)
+        {
+            LOGGER.warn("writeCodec(): Exception writing to key '{}'; {}", key, err.getLocalizedMessage());
+            return new CompoundTag();
+        }
+    }
+}
