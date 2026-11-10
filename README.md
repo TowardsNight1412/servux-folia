@@ -1,12 +1,14 @@
 # Servux — Folia / Paper 移植版
 
 把 Fabric 服务端模组 **Servux 0.12.2（MC 26.3）** 移植成 **Folia 26.3 / Paper 26.3** 插件。
-
+111主包大学实习比较忙，有什么问题晚上8点后才能回复，建议加QQ回复较快：3032626316
 - 源码基线：[`sakura-ryoko/servux` 分支 `26.3`](https://github.com/sakura-ryoko/servux/tree/26.3)
 - 目标平台：Folia 26.3（`26.3.build.6-alpha`），同样可在 Paper 26.3 运行
 - 插件入口：`fi.dy.masa.servux.plugin.ServuxPlugin`
 - 产物：`dist/servux-paper-26.3-0.12.2.jar`
-
+AAA关注塔菲谢谢喵~终末地危机合约镀层批发喵~
+B站账号：风车镇社区官方号
+抖音账号：风车镇社区频道
 ---
 
 ## 1. 功能支持矩阵
