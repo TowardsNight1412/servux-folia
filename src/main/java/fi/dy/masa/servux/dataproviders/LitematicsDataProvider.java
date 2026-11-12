@@ -274,17 +274,6 @@ public class LitematicsDataProvider extends DataProviderBase
 			return;
 		}
 
-		// The task engine mutates blocks across arbitrary chunks; that cannot run on a single
-		// thread under Folia's regionised ticking. Fail fast with a clear message instead of
-		// throwing ownership errors from the global region thread.
-		if (fi.dy.masa.servux.util.FoliaCompat.isFolia())
-		{
-			Servux.LOGGER.warn("litematic_data: denying server-side schematic task from {} on Folia", player.getName().getString());
-			player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-					"[Servux] Server-side schematic tasks (save/paste/fill/delete) are not supported on Folia yet."));
-			return;
-		}
-
 		if (!this.hasPermission(player))
 		{
 			Servux.debugLog("litematic_data: Denying onTaskRequest from player {}, Insufficient Permissions.", player.getName().getString());

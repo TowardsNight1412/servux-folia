@@ -3,6 +3,8 @@ package fi.dy.masa.servux.scheduler.tasks;
 import java.util.List;
 import javax.annotation.Nullable;
 
+import org.bukkit.Bukkit;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.profiling.ProfilerFiller;
@@ -16,8 +18,11 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
+import fi.dy.masa.servux.Servux;
+import fi.dy.masa.servux.plugin.ServuxPlugin;
 import fi.dy.masa.servux.scheduler.TaskContext;
 import fi.dy.masa.servux.schematic.selection.Box;
+import fi.dy.masa.servux.util.FoliaCompat;
 import fi.dy.masa.servux.util.StringUtils;
 import fi.dy.masa.servux.util.WorldUtils;
 import fi.dy.masa.servux.util.game.EntityUtils;
@@ -25,9 +30,18 @@ import fi.dy.masa.servux.util.position.IntBoundingBox;
 
 public class TaskFillArea extends TaskProcessChunkMultiPhase
 {
+    private static final int MAX_FOLIA_RETRIES = 100;
+
     protected final BlockState fillState;
     @Nullable protected final BlockState replaceState;
     protected final boolean removeEntities;
+
+    // Folia: the global tick only advances the state machine; one chunk at a
+    // time is filled on the region thread that owns it.
+    private ChunkPos foliaCurrentChunk = null;
+    private volatile boolean foliaChunkDone = false;
+    private volatile boolean foliaChunkOk = false;
+    private int foliaRetries = 0;
 
     public TaskFillArea(TaskContext ctx,
                         final List<Box> boxes,
@@ -52,7 +66,112 @@ public class TaskFillArea extends TaskProcessChunkMultiPhase
     @Override
     public boolean execute(ProfilerFiller profiler)
     {
-        return this.executeMultiPhase(profiler);
+        return FoliaCompat.isFolia() ? this.executeFolia(profiler) : this.executeMultiPhase(profiler);
+    }
+
+    /**
+     * Folia variant: schedule one chunk at a time on its owning region thread.
+     * The global tick never writes blocks; it only retires the finished chunk
+     * and starts the next one.
+     */
+    private boolean executeFolia(ProfilerFiller profiler)
+    {
+        profiler.push("folia_fill_area");
+
+        try
+        {
+            if (this.foliaCurrentChunk != null)
+            {
+                if (!this.foliaChunkDone)
+                {
+                    return false;
+                }
+
+                final ChunkPos finishedPos = this.foliaCurrentChunk;
+                final boolean ok = this.foliaChunkOk;
+                this.foliaCurrentChunk = null;
+                this.foliaChunkDone = false;
+
+                if (ok)
+                {
+                    this.pendingChunks.remove(finishedPos);
+                    this.foliaRetries = 0;
+                }
+                else if (++this.foliaRetries > MAX_FOLIA_RETRIES)
+                {
+                    Servux.LOGGER.warn("Servux fill/delete: giving up on chunk {} after {} attempts",
+                            finishedPos, MAX_FOLIA_RETRIES);
+                    this.pendingChunks.remove(finishedPos);
+                    this.foliaRetries = 0;
+                }
+
+                this.updateInfoHudLines();
+
+                if (this.pendingChunks.isEmpty())
+                {
+                    this.finished = true;
+                    return true;
+                }
+            }
+
+            if (this.pendingChunks.isEmpty())
+            {
+                this.finished = true;
+                return true;
+            }
+
+            final ChunkPos pos = this.pendingChunks.get(0);
+            this.foliaCurrentChunk = pos;
+            this.foliaChunkDone = false;
+            this.foliaChunkOk = false;
+
+            try
+            {
+                Bukkit.getRegionScheduler().run(ServuxPlugin.getInstance(),
+                        this.context.level().getWorld(), pos.x(), pos.z(), task ->
+                        {
+                            boolean ok = false;
+
+                            try
+                            {
+                                this.fillBoxesInChunkFolia(pos);
+                                ok = true;
+                            }
+                            catch (Throwable t)
+                            {
+                                Servux.LOGGER.error("Servux fill/delete: chunk {} failed", pos, t);
+                            }
+                            finally
+                            {
+                                this.foliaChunkOk = ok;
+                                this.foliaChunkDone = true;
+                            }
+                        });
+            }
+            catch (Throwable t)
+            {
+                Servux.LOGGER.error("Servux fill/delete: failed to schedule chunk {}", pos, t);
+                this.foliaCurrentChunk = null;
+                this.finished = true;
+                return true;
+            }
+
+            return false;
+        }
+        finally
+        {
+            profiler.pop();
+        }
+    }
+
+    private void fillBoxesInChunkFolia(ChunkPos pos)
+    {
+        for (IntBoundingBox box : this.getBoxesInChunk(pos))
+        {
+            // 0x32 already suppresses neighbour/physics updates; the global
+            // WorldUtils flag is shared across regions, so do not toggle it here.
+            this.directFillBox(box, this.removeEntities, false);
+        }
     }
 
     @Override
@@ -73,6 +192,11 @@ public class TaskFillArea extends TaskProcessChunkMultiPhase
 
     protected void directFillBox(IntBoundingBox box, boolean removeEntities)
     {
+        this.directFillBox(box, removeEntities, true);
+    }
+
+    protected void directFillBox(IntBoundingBox box, boolean removeEntities, boolean suppressUpdates)
+    {
         ServerLevel level = this.context.level();
 
         if (removeEntities)
@@ -80,7 +204,10 @@ public class TaskFillArea extends TaskProcessChunkMultiPhase
             directRemoveEntities(box, level);
         }
 
-        WorldUtils.setShouldPreventBlockUpdates(level, true);
+        if (suppressUpdates)
+        {
+            WorldUtils.setShouldPreventBlockUpdates(level, true);
+        }
 
         BlockState barrier = Blocks.BARRIER.defaultBlockState();
         BlockPos.MutableBlockPos posMutable = new BlockPos.MutableBlockPos();
@@ -110,7 +237,10 @@ public class TaskFillArea extends TaskProcessChunkMultiPhase
             }
         }
 
-        WorldUtils.setShouldPreventBlockUpdates(level, false);
+        if (suppressUpdates)
+        {
+            WorldUtils.setShouldPreventBlockUpdates(level, false);
+        }
     }
 
     public static void directRemoveEntities(IntBoundingBox box, Level level)
