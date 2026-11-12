@@ -1,6 +1,6 @@
 # Servux — Folia / Paper 移植版
 
-把 Fabric 服务端模组 **Servux 0.12.2（MC 26.3）** 移植成 **Folia 26.3 / Paper 26.3** 插件。
+把 Fabric 服务端模组 **Servux 0.12.2（MC 26.3）** 移植成 **Folia 26.3 / Paper 26.3** 插件，并向下适配到 1.21.8。
 
 - 源码基线：[`sakura-ryoko/servux` 分支 `26.3`](https://github.com/sakura-ryoko/servux/tree/26.3)
 - 目标平台：Folia 26.3（`26.3.build.6-alpha`），同样可在 Paper 26.3 运行
@@ -12,6 +12,24 @@
 AAA关注塔菲谢谢喵~终末地危机合约镀层批发喵~
 B站账号：风车镇社区官方号
 抖音账号：风车镇社区频道
+---
+
+## 多版本构建（Folia）
+
+26.3 是基础实现。同一套移植方案已产出以下 MC 版本的独立 jar（各版本协议与 NMS API 不同，不能混用）：
+
+| MC 版本 | 插件文件 | 测试的 Folia 构建 | 状态 |
+|---|---|---|---|
+| 26.2 | `Servux-Folia26.2.jar` | `folia-26.2-7` | ✅ 握手验证 |
+| 26.1.2 | `Servux-Folia26.1.jar` | `folia-26.1.2-8` | ✅ 握手验证 |
+| 1.21.11 | `Servux-Folia1.21.11.jar` | `folia-1.21.11-14` | ✅ 握手验证 |
+| 1.21.8 | `Servux-Folia1.21.8.jar` | `folia-1.21.8-6` | ✅ 握手验证 |
+
+> `1.21.10` 没有 Folia 构建（PaperMC 只发布了 Paper 版），暂无对应 jar。
+
+每个 jar 的客户端元数据为 `servux-fabric-<MC版本>-0.12.2`，客户端按自身 MC 版本校验。
+各版本的 NMS 适配差异见文末「更新记录」。
+
 ---
 
 ## 1. 功能支持矩阵
@@ -195,3 +213,23 @@ servux-folia/
 
 上游 Servux 使用 **LGPLv3**，本移植版沿用同一许可，详见 `LICENSE.txt`。
 分发、修改或二次发布前，请阅读 [`NOTICE.md`](NOTICE.md)（项目性质、修改说明、免责声明与再分发要求）。
+
+---
+
+## 10. 更新记录
+
+### 2026-11-12
+
+- 新增 Folia 多版本适配：**26.2、26.1.2、1.21.11、1.21.8**，均已实机握手验证（5 个频道 + 元数据）。
+- 26.1 系列使用 **26.1.2** 构建：Folia 在该系列只发布了 26.1.2。
+- **1.21.10** 因 Folia 无构建暂不提供。
+- 各版本主要差异：
+  - 26.2：数据包 getter 命名、`Recipe.CODEC`；
+  - 26.1.2：`EntityType`（非 `EntityTypes`）、`BlockTags.CONCRETE_POWDER`、`EntitySpawnReason.LOAD`；
+  - 1.21.11：`ChunkPos` 字段访问（`.x`/`.z`）、`ChunkPos.asLong`、实体生成 API、关闭 gamerule 探测；
+  - 1.21.8：`Identifier → ResourceLocation`、`net.minecraft.Util`、`GameProfile`、旧权限 API（`hasPermissions`）、`Painting` 包名、`startRiding` 签名，并按上游分支省略方块属性序列化。
+
+### 2026-11-10
+
+- 修复服务端粘贴触发侦测器 / BUD：使用 `UPDATE_SKIP_ON_PLACE`、`UPDATE_SUPPRESS_DROPS` 标志位。
+- 新增 Easy Place V3 服务端实现：拦截 `ServerboundUseItemOn` 解码 V3 协议，再于 `BlockPlaceEvent` 修正方块朝向。
